@@ -63,7 +63,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index, ...other })
       {...other}
     >
       {value === index && (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: { xs: 2, md: 3 } }}>
           {children}
         </Box>
       )}
@@ -324,11 +324,20 @@ const AdminDashboard: React.FC = () => {
   // 週表示のレンダリング
   const renderWeekView = () => {
     return (
-      <TableContainer component={Paper}>
+      <TableContainer 
+        component={Paper}
+        sx={{
+          overflowX: 'auto',  // 横スクロールを有効に
+          width: '100%',
+          '& .MuiTable-root': {
+            minWidth: 650,  // テーブルの最小幅を設定
+          }
+        }}
+      >
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell width="120px">時間</TableCell>
+              <TableCell width="120px" sx={{ minWidth: '80px' }}>時間</TableCell>
               {weekDates.map((date, index) => (
                 <TableCell 
                   key={index} 
@@ -336,6 +345,9 @@ const AdminDashboard: React.FC = () => {
                   sx={{
                     bgcolor: isDateUnavailable(date) ? 'error.light' : 'inherit',
                     position: 'relative',
+                    minWidth: '90px',
+                    padding: { xs: '8px 4px', md: '16px' },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' }
                   }}
                 >
                   {formatDate(date)}
@@ -343,12 +355,12 @@ const AdminDashboard: React.FC = () => {
                     <Box sx={{ 
                       position: 'absolute', 
                       top: 0, 
-                      right: 5, 
+                      right: { xs: 2, sm: 5 }, 
                       color: 'error.main',
                       display: 'flex',
                       alignItems: 'center',
                     }}>
-                      <EventIcon fontSize="small" />
+                      <EventIcon sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }} />
                     </Box>
                   )}
                 </TableCell>
@@ -364,7 +376,9 @@ const AdminDashboard: React.FC = () => {
               
               return (
                 <TableRow key={timeStr}>
-                  <TableCell>{timeStr}</TableCell>
+                  <TableCell sx={{ padding: { xs: '4px 8px', md: '16px' }, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                    {timeStr}
+                  </TableCell>
                   {weekDates.map((date, dateIndex) => {
                     const cellDate = new Date(date);
                     cellDate.setHours(hour, minute, 0, 0);
@@ -388,22 +402,26 @@ const AdminDashboard: React.FC = () => {
                             bgcolor: 'error.light',
                             color: 'error.contrastText',
                             position: 'relative',
+                            padding: { xs: '4px', md: '8px' },
                           }}
                         >
                           <Box sx={{ 
                             display: 'flex', 
                             alignItems: 'center',
                             justifyContent: 'center',
+                            flexDirection: { xs: 'column', sm: 'row' },
                           }}>
-                            <AccessTimeIcon fontSize="small" sx={{ mr: 0.5 }} />
-                            <Typography variant="caption">予約不可</Typography>
+                            <AccessTimeIcon sx={{ fontSize: { xs: '0.75rem', sm: '1rem' }, mr: { xs: 0, sm: 0.5 } }} />
+                            <Typography variant="caption" sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
+                              予約不可
+                            </Typography>
                           </Box>
                         </TableCell>
                       );
                     }
                     
                     if (!reservation) {
-                      return <TableCell key={dateIndex} />;
+                      return <TableCell key={dateIndex} sx={{ padding: { xs: '4px', md: '8px' } }} />;
                     }
                     
                     // 予約の時間枠を計算（30分単位）
@@ -421,18 +439,24 @@ const AdminDashboard: React.FC = () => {
                           border: '1px solid',
                           borderColor: 'primary.main',
                           position: 'relative',
+                          padding: { xs: '4px 8px', md: '8px 16px' },
                         }}
                       >
-                        <Typography variant="subtitle2">
+                        <Typography variant="subtitle2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                           {getServiceName(reservation)}
                         </Typography>
-                        <Typography variant="body2">
+                        <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                           {reservation.customer.name}
                         </Typography>
-                        <Typography variant="caption" display="block">
+                        <Typography variant="caption" display="block" sx={{ fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
                           担当: {getStaffName(reservation.assignedStaff)}
                         </Typography>
-                        <Box sx={{ position: 'absolute', top: 5, right: 5 }}>
+                        <Box sx={{ 
+                          position: 'absolute', 
+                          top: { xs: 2, sm: 5 }, 
+                          right: { xs: 2, sm: 5 },
+                          display: { xs: 'none', sm: 'block' } // スマホでは非表示（タップ操作性向上）
+                        }}>
                           <IconButton
                             size="small"
                             color="primary"
@@ -460,14 +484,15 @@ const AdminDashboard: React.FC = () => {
     
     return (
       <Paper>
-        <Box p={2}>
+        <Box p={{ xs: 1.5, sm: 2 }}>
           <Box sx={{ 
             display: 'flex', 
-            alignItems: 'center', 
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' }, 
             justifyContent: 'space-between',
             mb: 2 
           }}>
-            <Typography variant="h6">
+            <Typography variant="h6" sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
               {formatDate(currentDate)}の予約一覧
             </Typography>
             
@@ -480,6 +505,7 @@ const AdminDashboard: React.FC = () => {
                 px: 2,
                 py: 0.5,
                 borderRadius: 1,
+                mt: { xs: 1, sm: 0 }
               }}>
                 <EventIcon fontSize="small" sx={{ mr: 1 }} />
                 <Typography variant="body2">
@@ -490,78 +516,74 @@ const AdminDashboard: React.FC = () => {
           </Box>
           
           {dayReservations.length === 0 ? (
-            <Typography variant="body1" color="text.secondary" align="center" py={4}>
+            <Typography 
+              variant="body1" 
+              color="text.secondary" 
+              align="center" 
+              sx={{ 
+                py: { xs: 6, sm: 4 },
+                fontSize: { xs: '1rem', sm: '1rem' },
+                fontWeight: { xs: 'medium', sm: 'regular' }
+              }}
+            >
               予約はありません
             </Typography>
           ) : (
-            <Grid container spacing={2}>
+            <Grid container spacing={{ xs: 1, sm: 2 }}>
               {dayReservations.map((reservation) => (
                 <Grid item xs={12} key={reservation.id}>
                   <Paper
                     elevation={2}
                     sx={{
-                      p: 2,
+                      p: { xs: 1.5, sm: 2 },  // モバイルではパディングを小さく
                       borderLeft: '4px solid',
                       borderColor: 'primary.main',
                     }}
                   >
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6} md={3}>
-                        <Typography variant="subtitle2">時間</Typography>
-                        <Typography variant="body1">
+                    <Grid container spacing={{ xs: 1, sm: 2 }}>
+                      <Grid item xs={6} sm={6} md={3}>
+                        <Typography variant="subtitle2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          時間
+                        </Typography>
+                        <Typography variant="body1" sx={{ 
+                          fontSize: { xs: '0.875rem', sm: '1rem' },
+                          fontWeight: { xs: 'bold', sm: 'normal' }
+                        }}>
                           {formatTime(reservation.startTime)} - {formatTime(reservation.endTime)}
                         </Typography>
                       </Grid>
                       
-                      <Grid item xs={12} sm={6} md={3}>
-                        <Typography variant="subtitle2">サービス</Typography>
-                        <Typography variant="body1">
+                      <Grid item xs={6} sm={6} md={3}>
+                        <Typography variant="subtitle2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          サービス
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                           {getServiceName(reservation)}
                         </Typography>
                       </Grid>
                       
                       <Grid item xs={12} sm={6} md={3}>
-                        <Typography variant="subtitle2">お客様</Typography>
-                        <Typography variant="body1">
+                        <Typography variant="subtitle2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          お客様
+                        </Typography>
+                        <Typography variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                           {reservation.customer.name}
                         </Typography>
-                        <Typography variant="caption" display="block">
+                        <Typography variant="caption" display="block" sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                           {reservation.customer.phone}
                         </Typography>
                       </Grid>
-
-                      <Grid item xs={12} sm={6} md={3}>
-  <Typography variant="subtitle2">お客様</Typography>
-  <Typography variant="body1">
-    {reservation.customer.name}
-  </Typography>
-  <Typography variant="caption" display="block">
-    {reservation.customer.phone}
-  </Typography>
-</Grid>
-
-{/* 顧客の備考欄を新しいアイテムとして追加 */}
-<Grid item xs={12}>
-  <Typography variant="subtitle2">お客様備考</Typography>
-  <Typography variant="body2" sx={{ 
-    fontStyle: 'italic',
-    color: 'text.secondary',
-    bgcolor: 'grey.50',
-    p: 1,
-    borderRadius: 1,
-    minHeight: '24px'
-  }}>
-    {reservation.customer.notes || '(備考なし)'}
-  </Typography>
-</Grid>
                       
                       <Grid item xs={12} sm={6} md={3}>
-                        <Typography variant="subtitle2">担当者</Typography>
+                        <Typography variant="subtitle2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          担当者
+                        </Typography>
                         {editingId === reservation.id ? (
-                          <FormControl fullWidth size="small">
+                          <FormControl fullWidth size="small" sx={{ minWidth: { xs: '100%', sm: 120 } }}>
                             <Select
                               value={editingStaff}
                               onChange={(e) => setEditingStaff(e.target.value)}
+                              sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
                             >
                               <MenuItem value="">未割り当て</MenuItem>
                               {staffMembers.map((staff) => (
@@ -572,14 +594,35 @@ const AdminDashboard: React.FC = () => {
                             </Select>
                           </FormControl>
                         ) : (
-                          <Typography variant="body1">
+                          <Typography variant="body1" sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}>
                             {getStaffName(reservation.assignedStaff)}
                           </Typography>
                         )}
                       </Grid>
                       
+                      {/* 顧客の備考欄を表示 */}
                       <Grid item xs={12}>
-                        <Typography variant="subtitle2">メモ</Typography>
+                        <Typography variant="subtitle2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          お客様備考
+                        </Typography>
+                        <Typography variant="body2" sx={{ 
+                          fontStyle: 'italic',
+                          color: 'text.secondary',
+                          bgcolor: 'grey.50',
+                          p: 1,
+                          borderRadius: 1,
+                          minHeight: '24px',
+                          fontSize: { xs: '0.8rem', sm: '0.875rem' }
+                        }}>
+                          {reservation.customer.notes || '(備考なし)'}
+                        </Typography>
+                      </Grid>
+                      
+                      {/* 管理メモ欄 */}
+                      <Grid item xs={12}>
+                        <Typography variant="subtitle2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          管理メモ
+                        </Typography>
                         {editingId === reservation.id ? (
                           <TextField
                             fullWidth
@@ -588,20 +631,25 @@ const AdminDashboard: React.FC = () => {
                             value={editingNotes}
                             onChange={(e) => setEditingNotes(e.target.value)}
                             size="small"
+                            sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
                           />
                         ) : (
-                          <Typography variant="body2">
+                          <Typography variant="body2" sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
                             {reservation.notes || '(メモなし)'}
                           </Typography>
                         )}
                       </Grid>
                       
-                      <Grid item xs={12} sx={{ textAlign: 'right' }}>
+                      <Grid item xs={12} sx={{ 
+                        textAlign: { xs: 'center', sm: 'right' },
+                        mt: { xs: 1, sm: 0 }
+                      }}>
                         {editingId === reservation.id ? (
                           <>
                             <IconButton
                               color="primary"
                               onClick={() => handleEditSave(reservation.id)}
+                              sx={{ mr: 1 }}
                             >
                               <SaveIcon />
                             </IconButton>
@@ -617,6 +665,7 @@ const AdminDashboard: React.FC = () => {
                             <IconButton
                               color="primary"
                               onClick={() => handleEditStart(reservation)}
+                              sx={{ mr: 1 }}
                             >
                               <EditIcon />
                             </IconButton>
@@ -641,15 +690,41 @@ const AdminDashboard: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Paper elevation={3} sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom align="center">
+    <Container 
+      maxWidth="lg" 
+      sx={{ 
+        py: { xs: 2, md: 4 },  // スマホでは余白を小さく
+        px: { xs: 1, md: 2 }   // スマホでは左右の余白も調整
+      }}
+    >
+      <Paper elevation={3} sx={{ 
+        p: { xs: 2, md: 3 }  // スマホでは内側の余白を小さく
+      }}>
+        <Typography 
+          variant="h4" 
+          gutterBottom 
+          align="center"
+          sx={{ 
+            fontSize: { xs: '1.5rem', md: '2.125rem' }  // スマホでは小さめに
+          }}
+        >
           予約管理
         </Typography>
         
         {/* 表示切り替えタブ */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-          <Tabs value={tabValue} onChange={handleTabChange} centered>
+          <Tabs 
+            value={tabValue} 
+            onChange={handleTabChange} 
+            centered
+            sx={{
+              '& .MuiTab-root': {
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                minWidth: { xs: 'auto', sm: 90 },
+                padding: { xs: '6px 12px', sm: '12px 16px' },
+              }
+            }}
+          >
             <Tab label="週表示" />
             <Tab label="日表示" />
             <Tab label="予約不可設定" />
@@ -658,20 +733,45 @@ const AdminDashboard: React.FC = () => {
         
         {/* 日付ナビゲーション（予約不可設定タブでは非表示） */}
         {tabValue !== 2 && (
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Button startIcon={<ChevronLeft />} onClick={handlePrevious}>
-              {tabValue === 0 ? '前の週' : '前日'}
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            mb: 3,
+            flexDirection: { xs: 'column', sm: 'row' } // スマホでは縦並び
+          }}>
+            <Button 
+              startIcon={<ChevronLeft />} 
+              onClick={handlePrevious}
+              size="small"
+              sx={{ 
+                fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                mb: { xs: 1, sm: 0 }
+              }}
+            >
+              {tabValue === 0 ? '前週' : '前日'} 
             </Button>
             
-            <Typography variant="h6">
+            <Typography variant="h6" sx={{
+              fontSize: { xs: '0.9rem', sm: '1.25rem' },
+              mb: { xs: 1, sm: 0 },
+              whiteSpace: { xs: 'nowrap', sm: 'normal' }
+            }}>
               {tabValue === 0 && weekDates.length >= 7
                 ? `${formatDate(weekDates[0])} 〜 ${formatDate(weekDates[6])}`
                 : formatDate(currentDate)
               }
             </Typography>
             
-            <Button endIcon={<ChevronRight />} onClick={handleNext}>
-              {tabValue === 0 ? '次の週' : '翌日'}
+            <Button 
+              endIcon={<ChevronRight />} 
+              onClick={handleNext}
+              size="small"
+              sx={{ 
+                fontSize: { xs: '0.75rem', sm: '0.875rem' }
+              }}
+            >
+              {tabValue === 0 ? '次週' : '翌日'}
             </Button>
           </Box>
         )}
@@ -695,19 +795,27 @@ const AdminDashboard: React.FC = () => {
           open={notification.open}
           autoHideDuration={3000}
           onClose={handleCloseNotification}
-          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-        >
-          <Alert 
-            onClose={handleCloseNotification} 
-            severity={notification.severity}
-            sx={{ width: '100%' }}
+          anchorOrigin={{ 
+            vertical: 'bottom',  // スマホでは下部に表示
+            horizontal: 'center'}}
+            sx={{
+              bottom: { xs: 16, sm: 24 }, // スマホでは下部からの距離を調整
+              '& .MuiAlert-root': {
+                width: { xs: '90%', sm: 'auto' } // スマホでは幅を広く
+              }
+            }}
           >
-            {notification.message}
-          </Alert>
-        </Snackbar>
-      </Paper>
-    </Container>
-  );
-};
-
-export default AdminDashboard;
+            <Alert 
+              onClose={handleCloseNotification} 
+              severity={notification.severity}
+              sx={{ width: '100%' }}
+            >
+              {notification.message}
+            </Alert>
+          </Snackbar>
+        </Paper>
+      </Container>
+    );
+  };
+  
+  export default AdminDashboard;
