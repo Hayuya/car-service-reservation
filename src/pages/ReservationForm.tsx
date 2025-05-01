@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from 'uuid';
 import MenuSelector from '../components/MenuSelector';
 import Calendar from '../components/Calendar';
 import TimeSlotSelector from '../components/TimeSlotSelector';
+import ServiceDetails from '../components/ServiceDetails';
 import { services, getServiceDuration } from '../data/serviceMenu';
 import { generateTimeSlots, formatDate, formatTime } from '../utils/dateUtils';
 import { Customer, Reservation, TimeSlot } from '../types/Reservation';
@@ -83,7 +84,7 @@ const ReservationForm: React.FC = () => {
   const isStepValid = (step: number): boolean => {
     switch (step) {
       case 0: // サービス選択
-        return !!selectedService?.serviceId;
+        return !!selectedService?.serviceId && selectedService.serviceId !== '';
       case 1: // 日付選択
         return !!selectedDate;
       case 2: // 時間選択
@@ -95,14 +96,30 @@ const ReservationForm: React.FC = () => {
     }
   };
   
+  // サービス選択の状態をデバッグ出力
+  useEffect(() => {
+    console.log('選択されたサービス:', selectedService);
+    console.log('ステップ有効:', isStepValid(activeStep));
+  }, [selectedService, activeStep]);
+  
   // 次のステップへ
   const handleNext = () => {
+    console.log('次へボタン押下:', {
+      activeStep,
+      isValid: isStepValid(activeStep),
+      selectedService
+    });
+    
     if (activeStep === steps.length - 1) {
       handleSubmit();
       return;
     }
     
-    setActiveStep((prevStep) => prevStep + 1);
+    if (isStepValid(activeStep)) {
+      setActiveStep((prevStep) => prevStep + 1);
+    } else {
+      console.warn('現在のステップは有効ではありません:', activeStep);
+    }
   };
   
   // 前のステップへ
@@ -118,57 +135,65 @@ const ReservationForm: React.FC = () => {
     }));
   };
   
-  // 予約を送信（修正版）
-const handleSubmit = () => {
-  if (!selectedService?.serviceId || !selectedTime) return;
-  
-  const duration = getSelectedServiceDuration();
-  
-  // 終了時間を計算
-  const endTime = new Date(selectedTime);
-  endTime.setMinutes(endTime.getMinutes() + duration);
-  
-  // 予約データを作成
-  const reservation: Reservation = {
-    id: uuidv4(),
-    customer: {
+  // 予約を送信
+  const handleSubmit = () => {
+    if (!selectedService?.serviceId || !selectedTime) return;
+    
+    const duration = getSelectedServiceDuration();
+    
+    // 終了時間を計算
+    const endTime = new Date(selectedTime);
+    endTime.setMinutes(endTime.getMinutes() + duration);
+    
+    // 顧客情報から備考欄の値が確実に含まれるようにする
+    const customerData: Customer = {
       name: customer.name,
       phone: customer.phone,
-      notes: customer.notes || '', // 備考欄の値を確実に含める
-    },
-    service: selectedService,
-    date: selectedDate,
-    startTime: selectedTime,
-    endTime,
-    status: 'confirmed',
-  };
-  
-  // ローカルストレージに保存
-  addReservation(reservation);
-  
-  // 予約リストを更新
-  setExistingReservations([...existingReservations, reservation]);
-  
-  // コンソールに出力（デバッグ用）
-  console.log('予約データ:', reservation);
-  
-  // 成功メッセージを表示
-  setSuccess(true);
-  
-  // フォームをリセット
-  setTimeout(() => {
-    setActiveStep(0);
-    setSelectedService(null);
-    setSelectedDate(new Date());
-    setSelectedTime(null);
-    setCustomer({
-      name: '',
-      phone: '',
-      notes: '',
+      notes: customer.notes || '',  // undefinedの場合は空文字を設定
+    };
+    
+    // 予約データを作成
+    const reservation: Reservation = {
+      id: uuidv4(),
+      customer: customerData,
+      service: selectedService,
+      date: selectedDate,
+      startTime: selectedTime,
+      endTime,
+      status: 'confirmed',
+    };
+    
+    // デバッグ出力
+    console.log('作成した予約データ:', {
+      id: reservation.id,
+      customerName: reservation.customer.name,
+      customerPhone: reservation.customer.phone,
+      customerNotes: reservation.customer.notes,  // 備考欄の値を確認
     });
-    setSuccess(false);
-  }, 3000);
-};
+    
+    // ローカルストレージに保存
+    addReservation(reservation);
+    
+    // 予約リストを更新
+    setExistingReservations([...existingReservations, reservation]);
+    
+    // 成功メッセージを表示
+    setSuccess(true);
+    
+    // フォームをリセット
+    setTimeout(() => {
+      setActiveStep(0);
+      setSelectedService(null);
+      setSelectedDate(new Date());
+      setSelectedTime(null);
+      setCustomer({
+        name: '',
+        phone: '',
+        notes: '',
+      });
+      setSuccess(false);
+    }, 3000);
+  };
   
   // ステップコンテンツのレンダリング
   const renderStepContent = () => {
@@ -183,19 +208,27 @@ const handleSubmit = () => {
         );
       case 1: // 日付選択
         return (
-          <Calendar
-            selectedDate={selectedDate}
-            onDateChange={setSelectedDate}
-          />
+          <>
+            <Calendar
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+            />
+            {/* 選択したサービスの詳細を表示 */}
+            <ServiceDetails selectedService={selectedService} />
+          </>
         );
       case 2: // 時間選択
         return (
-          <TimeSlotSelector
-            slots={timeSlots}
-            selectedTime={selectedTime}
-            onTimeSelect={setSelectedTime}
-            serviceDuration={getSelectedServiceDuration()}
-          />
+          <>
+            <TimeSlotSelector
+              slots={timeSlots}
+              selectedTime={selectedTime}
+              onTimeSelect={setSelectedTime}
+              serviceDuration={getSelectedServiceDuration()}
+            />
+            {/* 選択したサービスの詳細を表示 */}
+            <ServiceDetails selectedService={selectedService} />
+          </>
         );
       case 3: // 顧客情報入力
         return (
