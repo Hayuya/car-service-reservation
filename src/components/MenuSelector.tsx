@@ -28,6 +28,8 @@ const MenuSelector: React.FC<MenuSelectorProps> = ({
 }) => {
   // サービスを選択
   const handleServiceSelect = (serviceId: string) => {
+    console.log('サービス選択:', serviceId);
+    
     // 選択中のサービスと同じなら選択解除
     if (selectedService?.serviceId === serviceId) {
       onServiceSelect({ serviceId: '' });
@@ -51,6 +53,8 @@ const MenuSelector: React.FC<MenuSelectorProps> = ({
   
   // オプションを選択
   const handleOptionSelect = (optionId: string) => {
+    console.log('オプション選択:', optionId);
+    
     if (!selectedService) return;
     
     onServiceSelect({
@@ -75,11 +79,15 @@ const MenuSelector: React.FC<MenuSelectorProps> = ({
               <ListItemButton 
                 selected={selectedService?.serviceId === service.id}
                 onClick={() => handleServiceSelect(service.id)}
-                sx={{ borderLeft: selectedService?.serviceId === service.id ? 4 : 0, borderColor: 'primary.main' }}
+                sx={{ 
+                  borderLeft: selectedService?.serviceId === service.id ? 4 : 0, 
+                  borderColor: 'primary.main',
+                  pl: selectedService?.serviceId === service.id ? 1 : 2
+                }}
               >
                 <Radio
                   checked={selectedService?.serviceId === service.id}
-                  onChange={() => {}}
+                  onChange={() => handleServiceSelect(service.id)}
                   onClick={(e) => e.stopPropagation()}
                 />
                 <ListItemText 

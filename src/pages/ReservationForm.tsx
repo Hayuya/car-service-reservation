@@ -13,7 +13,7 @@ import {
   Alert,
   Snackbar,
 } from '@mui/material';
-import { v4 as uuidv4 } from 'uuid'; // UUID生成のために追加必要
+import { v4 as uuidv4 } from 'uuid';
 import MenuSelector from '../components/MenuSelector';
 import Calendar from '../components/Calendar';
 import TimeSlotSelector from '../components/TimeSlotSelector';
@@ -21,23 +21,10 @@ import { services, getServiceDuration } from '../data/serviceMenu';
 import { generateTimeSlots, formatDate, formatTime } from '../utils/dateUtils';
 import { Customer, Reservation, TimeSlot } from '../types/Reservation';
 import { SelectedService } from '../types/Service';
+import { getReservations, addReservation, initializeWithSampleData } from '../utils/storageUtils';
 
 // ステップの定義
 const steps = ['サービス選択', '日付選択', '時間選択', '顧客情報入力'];
-
-// モックの予約データ
-const mockReservations: Partial<Reservation>[] = [
-  {
-    id: '1',
-    startTime: new Date(new Date().setHours(10, 0, 0, 0)),
-    endTime: new Date(new Date().setHours(11, 0, 0, 0)),
-  },
-  {
-    id: '2',
-    startTime: new Date(new Date().setHours(14, 0, 0, 0)),
-    endTime: new Date(new Date().setHours(15, 0, 0, 0)),
-  },
-];
 
 const ReservationForm: React.FC = () => {
   // ステップ管理
@@ -65,6 +52,20 @@ const ReservationForm: React.FC = () => {
   // 完了メッセージの状態
   const [success, setSuccess] = useState(false);
   
+  // 既存の予約データ
+  const [existingReservations, setExistingReservations] = useState<Reservation[]>([]);
+  
+  // サンプルデータの初期化（初回のみ）
+  useEffect(() => {
+    initializeWithSampleData();
+  }, []);
+  
+  // 既存の予約を読み込み
+  useEffect(() => {
+    const reservations = getReservations();
+    setExistingReservations(reservations);
+  }, []);
+  
   // サービス時間の計算
   const getSelectedServiceDuration = (): number => {
     if (!selectedService?.serviceId) return 0;
@@ -73,10 +74,10 @@ const ReservationForm: React.FC = () => {
   
   // 時間枠を更新
   useEffect(() => {
-    const slots = generateTimeSlots(selectedDate, mockReservations as any[]);
+    const slots = generateTimeSlots(selectedDate, existingReservations);
     setTimeSlots(slots);
     setSelectedTime(null); // 日付が変わったら時間選択をリセット
-  }, [selectedDate]);
+  }, [selectedDate, existingReservations]);
   
   // ステップの検証
   const isStepValid = (step: number): boolean => {
@@ -117,47 +118,57 @@ const ReservationForm: React.FC = () => {
     }));
   };
   
-  // 予約を送信
-  const handleSubmit = () => {
-    if (!selectedService?.serviceId || !selectedTime) return;
-    
-    const duration = getSelectedServiceDuration();
-    
-    // 終了時間を計算
-    const endTime = new Date(selectedTime);
-    endTime.setMinutes(endTime.getMinutes() + duration);
-    
-    // 予約データを作成
-    const reservation: Reservation = {
-      id: uuidv4(),
-      customer,
-      service: selectedService,
-      date: selectedDate,
-      startTime: selectedTime,
-      endTime,
-      status: 'confirmed',
-    };
-    
-    // コンソールに出力（APIの代わり）
-    console.log('予約データ:', reservation);
-    
-    // 成功メッセージを表示
-    setSuccess(true);
-    
-    // フォームをリセット
-    setTimeout(() => {
-      setActiveStep(0);
-      setSelectedService(null);
-      setSelectedDate(new Date());
-      setSelectedTime(null);
-      setCustomer({
-        name: '',
-        phone: '',
-        notes: '',
-      });
-      setSuccess(false);
-    }, 3000);
+  // 予約を送信（修正版）
+const handleSubmit = () => {
+  if (!selectedService?.serviceId || !selectedTime) return;
+  
+  const duration = getSelectedServiceDuration();
+  
+  // 終了時間を計算
+  const endTime = new Date(selectedTime);
+  endTime.setMinutes(endTime.getMinutes() + duration);
+  
+  // 予約データを作成
+  const reservation: Reservation = {
+    id: uuidv4(),
+    customer: {
+      name: customer.name,
+      phone: customer.phone,
+      notes: customer.notes || '', // 備考欄の値を確実に含める
+    },
+    service: selectedService,
+    date: selectedDate,
+    startTime: selectedTime,
+    endTime,
+    status: 'confirmed',
   };
+  
+  // ローカルストレージに保存
+  addReservation(reservation);
+  
+  // 予約リストを更新
+  setExistingReservations([...existingReservations, reservation]);
+  
+  // コンソールに出力（デバッグ用）
+  console.log('予約データ:', reservation);
+  
+  // 成功メッセージを表示
+  setSuccess(true);
+  
+  // フォームをリセット
+  setTimeout(() => {
+    setActiveStep(0);
+    setSelectedService(null);
+    setSelectedDate(new Date());
+    setSelectedTime(null);
+    setCustomer({
+      name: '',
+      phone: '',
+      notes: '',
+    });
+    setSuccess(false);
+  }, 3000);
+};
   
   // ステップコンテンツのレンダリング
   const renderStepContent = () => {

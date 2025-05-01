@@ -20,6 +20,8 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import { 
   ChevronLeft, 
@@ -27,48 +29,23 @@ import {
   Edit as EditIcon,
   Save as SaveIcon,
   Close as CloseIcon,
+  Delete as DeleteIcon,
+  Event as EventIcon,
+  AccessTime as AccessTimeIcon,
 } from '@mui/icons-material';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import { Reservation } from '../types/Reservation';
+import { UnavailableTime } from '../types/UnavailableTime';
 import { staffMembers } from '../data/serviceMenu';
 import { services } from '../data/serviceMenu';
-
-// モックの予約データ
-const mockReservations: Reservation[] = [
-  {
-    id: '1',
-    customer: { name: '山田太郎', phone: '090-1234-5678', notes: '初回来店' },
-    service: { serviceId: 'oil-change', optionId: 'oil-filter-yes' },
-    date: new Date(),
-    startTime: new Date(new Date().setHours(10, 0, 0, 0)),
-    endTime: new Date(new Date().setHours(10, 30, 0, 0)),
-    assignedStaff: 'staff1',
-    notes: '',
-    status: 'confirmed',
-  },
-  {
-    id: '2',
-    customer: { name: '佐藤花子', phone: '080-8765-4321', notes: 'リピーター' },
-    service: { serviceId: 'inspection', optionId: undefined },
-    date: new Date(),
-    startTime: new Date(new Date().setHours(14, 0, 0, 0)),
-    endTime: new Date(new Date().setHours(15, 0, 0, 0)),
-    assignedStaff: 'staff2',
-    notes: '事前連絡済み',
-    status: 'confirmed',
-  },
-  // 翌日の予約
-  {
-    id: '3',
-    customer: { name: '鈴木一郎', phone: '070-2345-6789' },
-    service: { serviceId: 'tire-change', optionId: 'tire-registration-yes' },
-    date: new Date(new Date().setDate(new Date().getDate() + 1)),
-    startTime: new Date(new Date().setHours(11, 0, 0, 0)),
-    endTime: new Date(new Date().setHours(12, 0, 0, 0)),
-    notes: 'タイヤ持ち込み',
-    status: 'confirmed',
-  },
-];
+import { 
+  getReservations, 
+  updateReservation, 
+  deleteReservation, 
+  initializeWithSampleData,
+  getUnavailableTimes 
+} from '../utils/storageUtils';
+import UnavailableTimeManager from '../components/UnavailableTimeManager';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -119,7 +96,7 @@ const isSameDay = (date1: Date, date2: Date): boolean => {
 };
 
 const AdminDashboard: React.FC = () => {
-  // 表示モード（週表示/日表示）
+  // 表示モード（週表示/日表示/設定）
   const [tabValue, setTabValue] = useState(0);
   
   // 現在表示している週/日
@@ -129,7 +106,10 @@ const AdminDashboard: React.FC = () => {
   const [weekDates, setWeekDates] = useState<Date[]>([]);
   
   // 予約リスト
-  const [reservations, setReservations] = useState<Reservation[]>(mockReservations);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  
+  // 予約不可能な日時リスト
+  const [unavailableTimes, setUnavailableTimes] = useState<UnavailableTime[]>([]);
   
   // 編集中の予約ID
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -140,14 +120,70 @@ const AdminDashboard: React.FC = () => {
   // 編集中の担当者
   const [editingStaff, setEditingStaff] = useState<string>('');
   
+  // 通知メッセージ
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
+  });
+  
+  // サンプルデータの初期化（初回のみ）
+  useEffect(() => {
+    initializeWithSampleData();
+  }, []);
+  
+  // 予約データの読み込み
+  useEffect(() => {
+    loadReservations();
+    loadUnavailableTimes();
+  }, []);
+  
   // 週の日付を更新
   useEffect(() => {
     setWeekDates(getWeekDates(currentDate));
   }, [currentDate]);
   
+  // 予約データを読み込む
+  const loadReservations = () => {
+    const data = getReservations();
+    setReservations(data);
+  };
+  
+  // 予約不可能な日時を読み込む
+  const loadUnavailableTimes = () => {
+    const times = getUnavailableTimes();
+    setUnavailableTimes(times);
+  };
+  
+  // 通知を表示
+  const showNotification = (message: string, severity: 'success' | 'error' | 'info') => {
+    setNotification({
+      open: true,
+      message,
+      severity,
+    });
+  };
+  
+  // 通知を閉じる
+  const handleCloseNotification = () => {
+    setNotification({
+      ...notification,
+      open: false,
+    });
+  };
+  
   // タブを切り替え
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+    
+    // 予約不可設定タブに切り替えた場合、データを再読み込み
+    if (newValue === 2) {
+      loadUnavailableTimes();
+    }
   };
   
   // 前の週/日へ
@@ -186,18 +222,54 @@ const AdminDashboard: React.FC = () => {
   
   // 予約の編集を保存
   const handleEditSave = (id: string) => {
-    setReservations(prevReservations => 
-      prevReservations.map(reservation => 
-        reservation.id === id 
-          ? {
-              ...reservation,
-              notes: editingNotes,
-              assignedStaff: editingStaff || undefined
-            }
-          : reservation
-      )
-    );
+    const reservationToUpdate = reservations.find(r => r.id === id);
+    
+    if (!reservationToUpdate) {
+      showNotification('予約データが見つかりません', 'error');
+      return;
+    }
+    
+    const updatedReservation: Reservation = {
+      ...reservationToUpdate,
+      notes: editingNotes,
+      assignedStaff: editingStaff || undefined,
+    };
+    
+    // ローカルストレージに保存
+    const success = updateReservation(updatedReservation);
+    
+    if (success) {
+      // 画面のリストも更新
+      setReservations(prevReservations => 
+        prevReservations.map(reservation => 
+          reservation.id === id ? updatedReservation : reservation
+        )
+      );
+      
+      showNotification('予約が更新されました', 'success');
+    } else {
+      showNotification('予約の更新に失敗しました', 'error');
+    }
+    
     setEditingId(null);
+  };
+  
+  // 予約を削除
+  const handleDeleteReservation = (id: string) => {
+    if (window.confirm('この予約を削除してもよろしいですか？')) {
+      const success = deleteReservation(id);
+      
+      if (success) {
+        // 画面のリストも更新
+        setReservations(prevReservations => 
+          prevReservations.filter(reservation => reservation.id !== id)
+        );
+        
+        showNotification('予約が削除されました', 'info');
+      } else {
+        showNotification('予約の削除に失敗しました', 'error');
+      }
+    }
   };
   
   // サービス名を取得
@@ -226,6 +298,29 @@ const AdminDashboard: React.FC = () => {
     return reservations.filter(reservation => isSameDay(reservation.date, date));
   };
   
+  // 日付が予約不可かどうかをチェック
+  const isDateUnavailable = (date: Date): boolean => {
+    return unavailableTimes.some(time => 
+      time.type === 'day' && isSameDay(time.date, date)
+    );
+  };
+  
+  // 時間枠が予約不可かどうかをチェック
+  const isTimeSlotUnavailable = (date: Date, hour: number, minute: number): boolean => {
+    const targetTime = new Date(date);
+    targetTime.setHours(hour, minute, 0, 0);
+    
+    return unavailableTimes.some(time => {
+      if (time.type !== 'timeSlot') return false;
+      if (!isSameDay(time.date, date)) return false;
+      
+      const start = time.startTime;
+      const end = time.endTime;
+      
+      return targetTime >= start && targetTime < end;
+    });
+  };
+  
   // 週表示のレンダリング
   const renderWeekView = () => {
     return (
@@ -235,8 +330,27 @@ const AdminDashboard: React.FC = () => {
             <TableRow>
               <TableCell width="120px">時間</TableCell>
               {weekDates.map((date, index) => (
-                <TableCell key={index} align="center">
+                <TableCell 
+                  key={index} 
+                  align="center"
+                  sx={{
+                    bgcolor: isDateUnavailable(date) ? 'error.light' : 'inherit',
+                    position: 'relative',
+                  }}
+                >
                   {formatDate(date)}
+                  {isDateUnavailable(date) && (
+                    <Box sx={{ 
+                      position: 'absolute', 
+                      top: 0, 
+                      right: 5, 
+                      color: 'error.main',
+                      display: 'flex',
+                      alignItems: 'center',
+                    }}>
+                      <EventIcon fontSize="small" />
+                    </Box>
+                  )}
                 </TableCell>
               ))}
             </TableRow>
@@ -255,12 +369,38 @@ const AdminDashboard: React.FC = () => {
                     const cellDate = new Date(date);
                     cellDate.setHours(hour, minute, 0, 0);
                     
+                    // この時間枠が予約不可かどうかをチェック
+                    const isUnavailable = isTimeSlotUnavailable(date, hour, minute);
+                    
                     // この時間枠に該当する予約を探す
                     const reservation = reservations.find(r => 
                       isSameDay(r.date, date) && 
                       r.startTime.getHours() === hour && 
                       r.startTime.getMinutes() === minute
                     );
+                    
+                    // 予約不可の場合、背景色を変える
+                    if (isUnavailable && !reservation) {
+                      return (
+                        <TableCell 
+                          key={dateIndex}
+                          sx={{
+                            bgcolor: 'error.light',
+                            color: 'error.contrastText',
+                            position: 'relative',
+                          }}
+                        >
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            <AccessTimeIcon fontSize="small" sx={{ mr: 0.5 }} />
+                            <Typography variant="caption">予約不可</Typography>
+                          </Box>
+                        </TableCell>
+                      );
+                    }
                     
                     if (!reservation) {
                       return <TableCell key={dateIndex} />;
@@ -292,6 +432,15 @@ const AdminDashboard: React.FC = () => {
                         <Typography variant="caption" display="block">
                           担当: {getStaffName(reservation.assignedStaff)}
                         </Typography>
+                        <Box sx={{ position: 'absolute', top: 5, right: 5 }}>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => handleEditStart(reservation)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     );
                   })}
@@ -307,13 +456,38 @@ const AdminDashboard: React.FC = () => {
   // 日表示のレンダリング
   const renderDayView = () => {
     const dayReservations = getReservationsByDate(currentDate);
+    const isDayUnavailable = isDateUnavailable(currentDate);
     
     return (
       <Paper>
         <Box p={2}>
-          <Typography variant="h6" gutterBottom>
-            {formatDate(currentDate)}の予約一覧
-          </Typography>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            mb: 2 
+          }}>
+            <Typography variant="h6">
+              {formatDate(currentDate)}の予約一覧
+            </Typography>
+            
+            {isDayUnavailable && (
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                color: 'error.main',
+                bgcolor: 'error.light',
+                px: 2,
+                py: 0.5,
+                borderRadius: 1,
+              }}>
+                <EventIcon fontSize="small" sx={{ mr: 1 }} />
+                <Typography variant="body2">
+                  予約不可日
+                </Typography>
+              </Box>
+            )}
+          </Box>
           
           {dayReservations.length === 0 ? (
             <Typography variant="body1" color="text.secondary" align="center" py={4}>
@@ -355,6 +529,31 @@ const AdminDashboard: React.FC = () => {
                           {reservation.customer.phone}
                         </Typography>
                       </Grid>
+
+                      <Grid item xs={12} sm={6} md={3}>
+  <Typography variant="subtitle2">お客様</Typography>
+  <Typography variant="body1">
+    {reservation.customer.name}
+  </Typography>
+  <Typography variant="caption" display="block">
+    {reservation.customer.phone}
+  </Typography>
+</Grid>
+
+{/* 顧客の備考欄を新しいアイテムとして追加 */}
+<Grid item xs={12}>
+  <Typography variant="subtitle2">お客様備考</Typography>
+  <Typography variant="body2" sx={{ 
+    fontStyle: 'italic',
+    color: 'text.secondary',
+    bgcolor: 'grey.50',
+    p: 1,
+    borderRadius: 1,
+    minHeight: '24px'
+  }}>
+    {reservation.customer.notes || '(備考なし)'}
+  </Typography>
+</Grid>
                       
                       <Grid item xs={12} sm={6} md={3}>
                         <Typography variant="subtitle2">担当者</Typography>
@@ -414,12 +613,20 @@ const AdminDashboard: React.FC = () => {
                             </IconButton>
                           </>
                         ) : (
-                          <IconButton
-                            color="primary"
-                            onClick={() => handleEditStart(reservation)}
-                          >
-                            <EditIcon />
-                          </IconButton>
+                          <>
+                            <IconButton
+                              color="primary"
+                              onClick={() => handleEditStart(reservation)}
+                            >
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton
+                              color="error"
+                              onClick={() => handleDeleteReservation(reservation.id)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
                         )}
                       </Grid>
                     </Grid>
@@ -445,26 +652,29 @@ const AdminDashboard: React.FC = () => {
           <Tabs value={tabValue} onChange={handleTabChange} centered>
             <Tab label="週表示" />
             <Tab label="日表示" />
+            <Tab label="予約不可設定" />
           </Tabs>
         </Box>
         
-        {/* 日付ナビゲーション */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Button startIcon={<ChevronLeft />} onClick={handlePrevious}>
-            {tabValue === 0 ? '前の週' : '前日'}
-          </Button>
-          
-          <Typography variant="h6">
-            {tabValue === 0 
-              ? `${formatDate(weekDates[0])} 〜 ${formatDate(weekDates[6])}`
-              : formatDate(currentDate)
-            }
-          </Typography>
-          
-          <Button endIcon={<ChevronRight />} onClick={handleNext}>
-            {tabValue === 0 ? '次の週' : '翌日'}
-          </Button>
-        </Box>
+        {/* 日付ナビゲーション（予約不可設定タブでは非表示） */}
+        {tabValue !== 2 && (
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Button startIcon={<ChevronLeft />} onClick={handlePrevious}>
+              {tabValue === 0 ? '前の週' : '前日'}
+            </Button>
+            
+            <Typography variant="h6">
+              {tabValue === 0 && weekDates.length >= 7
+                ? `${formatDate(weekDates[0])} 〜 ${formatDate(weekDates[6])}`
+                : formatDate(currentDate)
+              }
+            </Typography>
+            
+            <Button endIcon={<ChevronRight />} onClick={handleNext}>
+              {tabValue === 0 ? '次の週' : '翌日'}
+            </Button>
+          </Box>
+        )}
         
         {/* 表示コンテンツ */}
         <TabPanel value={tabValue} index={0}>
@@ -474,6 +684,27 @@ const AdminDashboard: React.FC = () => {
         <TabPanel value={tabValue} index={1}>
           {renderDayView()}
         </TabPanel>
+        
+        <TabPanel value={tabValue} index={2}>
+          {/* 予約不可設定の管理コンポーネント */}
+          <UnavailableTimeManager />
+        </TabPanel>
+        
+        {/* 通知メッセージ */}
+        <Snackbar
+          open={notification.open}
+          autoHideDuration={3000}
+          onClose={handleCloseNotification}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert 
+            onClose={handleCloseNotification} 
+            severity={notification.severity}
+            sx={{ width: '100%' }}
+          >
+            {notification.message}
+          </Alert>
+        </Snackbar>
       </Paper>
     </Container>
   );

@@ -1,4 +1,6 @@
 import { TimeSlot } from '../types/Reservation';
+import { UnavailableTime } from '../types/UnavailableTime';
+import { getUnavailableTimes } from './storageUtils';
 
 // 営業時間の定義
 export const BUSINESS_HOURS = {
@@ -6,36 +8,34 @@ export const BUSINESS_HOURS = {
   end: 18,  // 18:00
 };
 
-// 30分間隔のタイムスロットを生成
-export const generateTimeSlots = (date: Date, reservations: any[] = []): TimeSlot[] => {
-  const slots: TimeSlot[] = [];
-  const startHour = BUSINESS_HOURS.start;
-  const endHour = BUSINESS_HOURS.end;
+// 日付が同じかどうかをチェック（年月日のみ）
+export const isSameDay = (date1: Date, date2: Date): boolean => {
+  return (
+    date1.getFullYear() === date2.getFullYear() &&
+    date1.getMonth() === date2.getMonth() &&
+    date1.getDate() === date2.getDate()
+  );
+};
+
+// 時間枠が予約不可かどうかをチェック
+export const isTimeSlotUnavailable = (
+  date: Date, 
+  hour: number, 
+  minute: number,
+  unavailableTimes: UnavailableTime[]
+): boolean => {
+  const targetTime = new Date(date);
+  targetTime.setHours(hour, minute, 0, 0);
   
-  const currentDate = new Date(date);
-  currentDate.setHours(0, 0, 0, 0);
-  
-  // 30分間隔でスロットを生成
-  for (let hour = startHour; hour < endHour; hour++) {
-    for (let minutes = 0; minutes < 60; minutes += 30) {
-      const startTime = new Date(currentDate);
-      startTime.setHours(hour, minutes);
-      
-      const endTime = new Date(startTime);
-      endTime.setMinutes(endTime.getMinutes() + 30);
-      
-      // 予約と重複するスロットを判定
-      const isAvailable = !isSlotReserved(startTime, endTime, reservations);
-      
-      slots.push({
-        startTime,
-        endTime,
-        isAvailable
-      });
-    }
-  }
-  
-  return slots;
+  return unavailableTimes.some(time => {
+    if (time.type !== 'timeSlot') return false;
+    if (!isSameDay(time.date, date)) return false;
+    
+    const start = time.startTime;
+    const end = time.endTime;
+    
+    return targetTime >= start && targetTime < end;
+  });
 };
 
 // スロットが予約済みかどうかを判定
@@ -55,6 +55,70 @@ export const isSlotReserved = (
       (slotStart <= reservationStart && slotEnd >= reservationEnd)
     );
   });
+};
+
+// 30分間隔のタイムスロットを生成
+export const generateTimeSlots = (date: Date, reservations: any[] = []): TimeSlot[] => {
+  const slots: TimeSlot[] = [];
+  const startHour = BUSINESS_HOURS.start;
+  const endHour = BUSINESS_HOURS.end;
+  
+  const currentDate = new Date(date);
+  currentDate.setHours(0, 0, 0, 0);
+  
+  // 予約不可能な日時を取得
+  const unavailableTimes = getUnavailableTimes();
+  
+  // 終日予約不可能かどうかをチェック
+  const isDayUnavailable = unavailableTimes.some(time => 
+    time.type === 'day' && isSameDay(time.date, date)
+  );
+  
+  // 終日予約不可能な場合は、すべてのスロットを予約不可に
+  if (isDayUnavailable) {
+    // 30分間隔でスロットを生成（すべて予約不可）
+    for (let hour = startHour; hour < endHour; hour++) {
+      for (let minutes = 0; minutes < 60; minutes += 30) {
+        const startTime = new Date(currentDate);
+        startTime.setHours(hour, minutes);
+        
+        const endTime = new Date(startTime);
+        endTime.setMinutes(endTime.getMinutes() + 30);
+        
+        slots.push({
+          startTime,
+          endTime,
+          isAvailable: false,
+        });
+      }
+    }
+    return slots;
+  }
+  
+  // 30分間隔でスロットを生成
+  for (let hour = startHour; hour < endHour; hour++) {
+    for (let minutes = 0; minutes < 60; minutes += 30) {
+      const startTime = new Date(currentDate);
+      startTime.setHours(hour, minutes);
+      
+      const endTime = new Date(startTime);
+      endTime.setMinutes(endTime.getMinutes() + 30);
+      
+      // 予約と重複するスロットを判定
+      const isReserved = isSlotReserved(startTime, endTime, reservations);
+      
+      // 予約不可能な時間帯と重複するかを判定
+      const isUnavailable = isTimeSlotUnavailable(date, hour, minutes, unavailableTimes);
+      
+      slots.push({
+        startTime,
+        endTime,
+        isAvailable: !isReserved && !isUnavailable,
+      });
+    }
+  }
+  
+  return slots;
 };
 
 // サービス時間に基づいて、選択可能な時間枠を計算
