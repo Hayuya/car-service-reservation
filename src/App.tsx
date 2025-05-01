@@ -85,7 +85,7 @@ const App: React.FC = () => {
         <AppBar position="static">
           <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-              自動車サービス予約システム
+              サンコーオート様　ピットサービス予約システム（プロトタイプ）
             </Typography>
             <Button 
               color="inherit" 
