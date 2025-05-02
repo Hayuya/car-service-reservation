@@ -5,6 +5,7 @@ on:
     branches:
       - main
 
+# ← これが重要
 permissions:
   contents: write
 
