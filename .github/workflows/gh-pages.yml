@@ -3,18 +3,25 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main  # ←必要に応じて「master」に変更
+      - main
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
+
       - uses: actions/setup-node@v3
         with:
           node-version: 18
-      - run: npm install
+
+      - run: npm ci
       - run: npm run build
+
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v3
         with:
