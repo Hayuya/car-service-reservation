@@ -5,9 +5,8 @@ on:
     branches:
       - main
 
-# ← これが重要
 permissions:
-  contents: write
+  contents: write  # ← これがなければGitHub Pagesに反映されません！
 
 jobs:
   build:
